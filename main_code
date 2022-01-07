@@ -1,0 +1,115 @@
+# Vytvořím tabulku t_Matej_Piro_projekt_SQL_babystep1. 
+
+CREATE TABLE t_Matej_Piro_projekt_SQL_babystep1 (
+  `date` date DEFAULT NULL,
+  `country` text DEFAULT NULL,
+  `confirmed` double DEFAULT NULL,
+  KEY `covid19_basic_differences_date_key` (`date`),
+  KEY `covid19_basic_differences_country_key` (`country`(1000))
+);
+
+# Jako základ struktury použiju tabulku covid19_basic_differences. 
+Z ní překopíruju sloupce 'date' , 'country' a 'confirmed'.
+
+INSERT INTO t_Matej_Piro_projekt_SQL_babystep1
+	SELECT `date` , country , confirmed  
+	FROM covid19_basic_differences cbd;
+
+## Zjistím si, kolik mám v tabulce unikátních států. Vyjde mi 189.
+
+SELECT count(DISTINCT country) 
+FROM t_Matej_Piro_projekt_SQL_babystep1 tmppsb
+
+# Přidám do tabulky t_Matej_Piro_projekt_SQL_babystep1 sloupec tests_performed
+
+ALTER TABLE t_Matej_Piro_projekt_SQL_babystep1 
+ADD tests_performed double DEFAULT NULL;
+
+## Zjistím si, kolik mám v tabulce covid19_tests unikátních států. Vyjde mi 110.
+
+SELECT count(DISTINCT country) 
+FROM covid19_tests ct
+
+# TESTS PERFORMED
+## Do tabulky t_Matej_Piro_projekt_SQL_babystep1 přidám data o počtu provedených testů z tabulky covid19_tests.
+S vědomím, že existuje značný rozdíl v počtu unikátních států v obou tabulkách (189 a 110). A tedy, že pro hodně států bude hodnota "NULL". Je možné s tím nesouhlasit a to je asi tak všechno co s tím můžu dělat.
+
+UPDATE t_Matej_Piro_projekt_SQL_XXX AS t 			# mělo by to být takle, ale výpočetní čas je šílenej a doteď to dycky zhavarovalo:(
+INNER JOIN covid19_tests as c on t.country = c.country  and t.date = c.date
+SET t.tests_performed = c.tests_performed;
+
+--------------------
+# WEEKEND?
+
+## přidej sloupec weekend
+ALTER TABLE t_local_matej_piro_projekt  
+ADD COLUMN weekend integer DEFAULT NULL;
+
+## přidej pomocný sloupec week_day
+ALTER TABLE t_local_matej_piro_projekt  
+ADD COLUMN week_day integer DEFAULT NULL;
+
+## zjisti den v týdnu a ulož ho do sloupce week_day (funkce DATE_FORMAT)
+UPDATE t_local_matej_piro_projekt AS t 		# Sunday=0 and Saturday=6
+SET week_day = DATE_FORMAT(`date` , "%w")
+
+## nastav 1 pro víkend a 0 pro všední den ve sloupci weekend
+UPDATE t_local_matej_piro_projekt 
+SET weekend = 
+	(CASE 
+		WHEN week_day = 6 THEN 1
+		WHEN week_day = 0 THEN 1
+		ELSE 0
+	END)
+
+## zruš pomocný sloupec week_day
+ALTER TABLE t_local_matej_piro_projekt 
+DROP COLUMN week_day
+
+--------------------------------------
+# ROČNÍ OBDOBÍ DANÉHO DNE - POZN: Bude počítáno s ročními obdobími dle Evropy. Je dobré vědět, že roční období se liší podle toho, kde stát na planetě leží (severní/jižní polokoule):P. Třeba 1.4. pro ČR znamená cca opačné roční období než pro Austrálii.
+
+## kdy končí a začínají roční období 
+jaro 2020: od 20.3.	léto 2020: od 20.6.	podzim 2020: od 22.9.	zima 2020: od 21.12.	jaro 2021: od 20.3.	
+jaro: 0, léto: 1, podzim: 2, zima: 3
+
+## zjistím od kdy do kdy mám data: 
+SELECT min(`date`), max(`date`) 
+FROM t_local_matej_piro_projekt tlmpp 
+
+## přidej sloupec season
+ALTER TABLE t_local_matej_piro_projekt  
+ADD COLUMN season integer DEFAULT NULL;
+
+## nastav období
+UPDATE t_local_matej_piro_projekt 	# BETWEEN bere hodnoty včetně krajních
+SET season = 
+	(CASE 
+		WHEN `date` < '2020-3-20' THEN 3				# zima 2021/2020 je do 20.3. bez něj
+		WHEN `date` BETWEEN '2020-3-20' AND '2020-6-19' THEN 0		# jaro 2020 je do 20.6. bez něj
+		WHEN `date` BETWEEN '2020-6-20' AND '2020-9-21' THEN 1		# léto 2020 je od 20.6. do 21.9.
+		WHEN `date` BETWEEN '2020-9-22' AND '2020-12-20' THEN 2		# podzim 2020 je od 22.9. do 20.12.
+		WHEN `date` BETWEEN '2020-12-21' AND '2020-3-19' THEN 3		# zima 2020/2021 je od 21.12. do 19.3.
+		WHEN `date` > '2020-3-20' THEN 0				# jaro 2021 je od 20.3. 
+		ELSE 5
+	END) 
+
+--------------------------------------
+# PROMĚNNÉ PRO DANÝ STÁT
+
+## pomocná tabulka pro státy
+CREATE TABLE t_local_Matej_Piro_projekt_countries (
+  `country` text DEFAULT NULL,
+  `population_2020` double DEFAULT NULL,
+  `area` double DEFAULT NULL,
+  `pop_density_2020` double DEFAULT NULL,
+  `GDP_2020` double DEFAULT NULL,
+  `gini_2018` double DEFAULT NULL,
+  `mortality_under_5_2018` double DEFAULT NULL,
+  `age_media_2018` double DEFAULT NULL,
+  `diff_life_expect_1965_2015` double DEFAULT NULL,
+  KEY `t_local_Matej_Piro_projekt_countries` (`country`(1000))
+);
+
+
+
