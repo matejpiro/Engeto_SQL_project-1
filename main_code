@@ -34,7 +34,7 @@ FROM covid19_tests ct
 ## Do tabulky t_Matej_Piro_projekt_SQL_babystep1 přidám data o počtu provedených testů z tabulky covid19_tests.
 S vědomím, že existuje značný rozdíl v počtu unikátních států v obou tabulkách (189 a 110). A tedy, že pro hodně států bude hodnota "NULL". Je možné s tím nesouhlasit a to je asi tak všechno co s tím můžu dělat.
 
-UPDATE t_Matej_Piro_projekt_SQL_XXX AS t 			# mělo by to být takle, ale výpočetní čas je šílenej a doteď to dycky zhavarovalo:(
+UPDATE t_Matej_Piro_projekt_SQL_XXX AS t 			#  tohle je v principu správně. Jen je to tak výpočetně náročný, že prakticky je vhodné to rozdělit do víc kroků.
 INNER JOIN covid19_tests as c on t.country = c.country  and t.date = c.date
 SET t.tests_performed = c.tests_performed;
 
@@ -97,19 +97,466 @@ SET season =
 --------------------------------------
 # PROMĚNNÉ PRO DANÝ STÁT
 
-## pomocná tabulka pro státy
-CREATE TABLE t_local_Matej_Piro_projekt_countries (
-  `country` text DEFAULT NULL,
-  `population_2020` double DEFAULT NULL,
-  `area` double DEFAULT NULL,
-  `pop_density_2020` double DEFAULT NULL,
-  `GDP_2020` double DEFAULT NULL,
-  `gini_2018` double DEFAULT NULL,
-  `mortality_under_5_2018` double DEFAULT NULL,
-  `age_media_2018` double DEFAULT NULL,
-  `diff_life_expect_1965_2015` double DEFAULT NULL,
-  KEY `t_local_Matej_Piro_projekt_countries` (`country`(1000))
-);
+## pomocná tabulka pro státy naplněná státy ze základní tabulky
+CREATE TABLE t_local_Matej_Piro_projekt_countries
+	SELECT DISTINCT country 
+	FROM t_local_matej_piro_projekt tlmpp 
+
+## přidej sloupečky
+ALTER TABLE t_local_Matej_Piro_projekt_countries 
+  ADD COLUMN `population_2020` double DEFAULT NULL,
+  ADD COLUMN `area_km2` double DEFAULT NULL,
+  ADD COLUMN `pop_density_2020` double DEFAULT NULL,
+  ADD COLUMN `GDP_2020` double DEFAULT NULL,
+  ADD COLUMN `GDP_per_cap_2020` double DEFAULT NULL,
+  ADD COLUMN `gini_2015` double DEFAULT NULL,
+  ADD COLUMN `mortality_under_5_2019` double DEFAULT NULL,
+  ADD COLUMN `age_median_2018` double DEFAULT NULL,
+  ADD COLUMN `diff_life_expect_1965_2015` double DEFAULT NULL;
+
+# POPULACE 
+## přidej populaci pro rok 2020 z tabulky economies 
+UPDATE t_local_matej_piro_projekt_countries AS tc
+INNER JOIN economies ON tc.country = economies.country 
+SET population_2020 = population
+WHERE `year` = 2020
+
+## některé státy mají kvůli rozdílným názvům NULL hodnoty - zjisti které
+SELECT country 
+FROM t_local_matej_piro_projekt_countries tlmppc 
+WHERE population_2020 IS NULL 
+
+## Pro které z těchto států jsou v tabulce economies data pod jiným názvem státu?
+SELECT country, population, `year` 
+FROM economies e 
+WHERE `year` = 2020 AND country LIKE '%Baham%' OR 
+	`year` = 2020 AND country LIKE '%Brun%' OR
+	`year` = 2020 AND country LIKE '%Burm%' OR		# není
+	`year` = 2020 AND country LIKE '%Congo%' OR		# 2 Konga (Kinshasa je v Dem. rep. Kongo)
+	`year` = 2020 AND country LIKE '%Cote%' OR 		# není
+	`year` = 2020 AND country LIKE '%Czech%' OR
+	`year` = 2020 AND country LIKE '%Diamond%' OR		# není
+	`year` = 2020 AND country LIKE '%Eritr%' OR		# je ale stejně má null
+	`year` = 2020 AND country LIKE '%Eswati%' OR		# není
+	`year` = 2020 AND country LIKE '%Holy%' OR		# není
+	`year` = 2020 AND country LIKE '%South Ko%' OR
+	`year` = 2020 AND country LIKE '%Micronesi%' OR
+	`year` = 2020 AND country LIKE '%MS Zaand%' OR 		# není
+	`year` = 2020 AND country LIKE '%Russia%' OR 
+	`year` = 2020 AND country LIKE '%Saint Kitt%' OR 	# není
+	`year` = 2020 AND country LIKE '%Saint Luc%' OR 	# není
+	`year` = 2020 AND country LIKE '%Saint Vinc%' OR	 # není
+	`year` = 2020 AND country LIKE '%Taiw%' OR 		# není
+	`year` = 2020 AND country LIKE '%United Sta%' OR 
+	`year` = 2020 AND country LIKE '%Gaza%' 		# není
+
+## do tabulky se zeměmi přidej sloupec "alias_e" který bude sloužit k propojení států s jiným jménem z tabulky economies
+ALTER TABLE t_local_matej_piro_projekt_countries 
+ADD COLUMN alias_e text DEFAULT NULL
+
+## do sloupce "alias_e" přidej názvy států (u těch, které si neodpovídají a zároveň mají v economies data) odpovídající tabulce economies   //9 států   //Tohle je odpornej zápis. Nejde to hezčejc?    // Pořád tam zbyde asi 10 států bez dat
+UPDATE t_local_matej_piro_projekt_countries tlmppc
+SET alias_e = 'Bahamas, The' WHERE country = 'Bahamas'
+
+UPDATE t_local_matej_piro_projekt_countries tlmppc
+SET alias_e = 'Brunei Darussalam' WHERE country = 'Brunei'
+
+UPDATE t_local_matej_piro_projekt_countries tlmppc
+SET alias_e = 'Congo' WHERE country = 'Congo (Brazzaville)'
+
+UPDATE t_local_matej_piro_projekt_countries tlmppc
+SET alias_e = 'The Democratic Republic of Congo' WHERE country = 'Congo (Kinshasa)'
+
+UPDATE t_local_matej_piro_projekt_countries tlmppc
+SET alias_e = 'Czech Republic' WHERE country = 'Czechia'
+
+UPDATE t_local_matej_piro_projekt_countries tlmppc
+SET alias_e = 'South Korea' WHERE country = 'Korea, South'
+
+UPDATE t_local_matej_piro_projekt_countries tlmppc
+SET alias_e = 'Micronesia, Fed. Sts.' WHERE country = 'Micronesia'
+
+UPDATE t_local_matej_piro_projekt_countries tlmppc
+SET alias_e = 'Russian Federation' WHERE country = 'Russia'
+
+UPDATE t_local_matej_piro_projekt_countries tlmppc
+SET alias_e = 'United States' WHERE country = 'US'
+
+## přidej populaci pro rok 2020 z tabulky economies pro státy ze sloupce "alias_e"
+UPDATE t_local_matej_piro_projekt_countries AS tc
+INNER JOIN economies ON tc.alias_e = economies.country 
+SET population_2020 = population
+WHERE `year` = 2020
+
+# HDP NA OBYVATELE
+## přidej celkové HDP z tabulky economies pro country
+UPDATE t_local_matej_piro_projekt_countries AS tc
+INNER JOIN economies ON tc.country = economies.country 
+SET GDP_2020 = GDP
+WHERE `year` = 2020
+
+## přidej celkové HDP z tabulky economies pro aliasy
+UPDATE t_local_matej_piro_projekt_countries AS tc
+INNER JOIN economies ON tc.alias_e = economies.country 
+SET GDP_2020 = GDP
+WHERE `year` = 2020
+
+## vypočti HDP na obyvatele
+UPDATE t_local_matej_piro_projekt_countries 
+SET GDP_per_cap_2020 = GDP_2020/population_2020
+
+# GINI KOEFICIENT	// vybírám data pro 2015 kombinací kritérií počet států (82) a aktuálnost dat
+## přidej gini z tabulky economies pro country
+UPDATE t_local_matej_piro_projekt_countries AS tc
+INNER JOIN economies ON tc.country = economies.country 
+SET gini_2015 = gini
+WHERE `year` = 2015
+
+## přidej gini z tabulky economies pro aliasy
+UPDATE t_local_matej_piro_projekt_countries AS tc
+INNER JOIN economies ON tc.alias_e = economies.country 
+SET gini_2015 = gini
+WHERE `year` = 2015
+
+# DĚTSKÁ ÚMRTNOST	// vybírám data pro 2019 kombinací kritérií počet států a aktuálnost dat
+## přidej mortality z tabulky economies pro country
+UPDATE t_local_matej_piro_projekt_countries AS tc
+INNER JOIN economies ON tc.country = economies.country 
+SET mortality_under_5_2019 = mortaliy_under5
+WHERE `year` = 2019
+
+## přidej mortality z tabulky economies pro aliasy
+UPDATE t_local_matej_piro_projekt_countries AS tc
+INNER JOIN economies ON tc.alias_e = economies.country 
+SET mortality_under_5_2019 = mortaliy_under5
+WHERE `year` = 2019
+
+# HUSTOTA ZALIDNĚNÍ
+## přidej rozlohu státu z tabulky countries pro country
+UPDATE t_local_matej_piro_projekt_countries AS tc
+INNER JOIN countries ON tc.country = countries.country 
+SET area = surface_area
+
+## přidej rozlohu státu z tabulky countries pro aliasy_e
+UPDATE t_local_matej_piro_projekt_countries AS tc
+INNER JOIN countries ON tc.alias_e = countries.country 
+SET area = surface_area
+
+## některé státy mají stále kvůli rozdílným názvům NULL hodnoty - zjisti které
+SELECT country 
+FROM t_local_matej_piro_projekt_countries tlmppc 
+WHERE area IS NULL
+
+## přidej sloupec "alias_c" který pokryje (další) rozdělíně pojmenované stejné státy vzhledem k tabulce countries
+ALTER TABLE t_local_matej_piro_projekt_countries 
+ADD COLUMN alias_c text DEFAULT NULL;
+	
+## do sloupce "alias_c" přidej názvy států (u těch, které si neodpovídají a zároveň mají v countries data) odpovídající tabulce countries	// další 4 státy
+UPDATE t_local_matej_piro_projekt_countries tlmppc
+SET alias_c = 'Fiji Islands' WHERE country = 'Fiji'
+
+UPDATE t_local_matej_piro_projekt_countries tlmppc
+SET alias_c = 'Holy See (Vatican City State)' WHERE country = 'Holy See'
+
+UPDATE t_local_matej_piro_projekt_countries tlmppc
+SET alias_c = 'Libyan Arab Jamahiriya' WHERE country = 'Libya'
+
+UPDATE t_local_matej_piro_projekt_countries tlmppc
+SET alias_c = 'Micronesia, Federated States of' WHERE country = 'Micronesia'
+
+## přidej rozlohu státu z tabulky countries pro aliasy_c
+UPDATE t_local_matej_piro_projekt_countries AS tc
+INNER JOIN countries ON tc.alias_c = countries.country 
+SET area = surface_area
+
+## vypočti hustotu zalidnění
+UPDATE t_local_matej_piro_projekt_countries 
+SET pop_density_2020 = population_2020/area_km2 
+
+# VĚKOVÝ MEDIÁN
+## přidej medián z tabulky countries pro country
+UPDATE t_local_matej_piro_projekt_countries AS tc
+INNER JOIN countries ON tc.country = countries.country 
+SET age_median_2018 = median_age_2018
+
+## přidej medián z tabulky countries pro aliasy_e
+UPDATE t_local_matej_piro_projekt_countries AS tc
+INNER JOIN countries ON tc.alias_e = countries.country 
+SET age_median_2018 = median_age_2018
+
+## přidej medián z tabulky countries pro aliasy_c
+UPDATE t_local_matej_piro_projekt_countries AS tc
+INNER JOIN countries ON tc.alias_c = countries.country 
+SET age_median_2018 = median_age_2018
 
 
+# ROZDÍL MEZI OČEKÁVANOU DOBOU DOŽITÍ 1965 a 2015
+## vytvoř pomocnou tabulku se státy podle tab. life_expectancy 		// tohle by mělo nějak jít bez té pomocné tabulky... ale po půl hodině zkoušení sem to vzdal:)
+CREATE TABLE t_local_life_expectancy_diff
+	SELECT DISTINCT country 
+	FROM life_expectancy le 
+
+## vytvoř v ní potřebné sloupce
+ALTER TABLE t_local_life_expectancy_diff
+ADD COLUMN `l_e_1965` double DEFAULT NULL,
+ADD COLUMN `l_e_2015` double DEFAULT NULL,
+ADD COLUMN `l_e_diff` double DEFAULT NULL
+
+## vlož do ní data pro rok 1965 z tabulky life_expectancy
+UPDATE t_local_life_expectancy_diff AS tle
+INNER JOIN life_expectancy ON tle.country = life_expectancy.country 
+SET l_e_1965 = life_expectancy
+WHERE `year`= 1965
+
+## vlož do ní data pro rok 2015 z tabulky life_expectancy
+UPDATE t_local_life_expectancy_diff AS tle
+INNER JOIN life_expectancy ON tle.country = life_expectancy.country 
+SET l_e_2015 = life_expectancy
+WHERE `year`= 2015
+
+## vytvoř sloupec s rozdílem
+UPDATE t_local_life_expectancy_diff 
+SET l_e_diff = l_e_2015 - l_e_1965
+
+## přidej l_e z tabulky life_expectancy pro country
+UPDATE t_local_matej_piro_projekt_countries AS tc
+INNER JOIN t_local_life_expectancy_diff ON tc.country = t_local_life_expectancy_diff.country 
+SET diff_life_expect_1965_2015 = l_e_diff
+
+## přidej l_e z tabulky life_expectancy pro aliasy_e (aliasy_c nevrátily nic)
+UPDATE t_local_matej_piro_projekt_countries AS tc
+INNER JOIN t_local_life_expectancy_diff ON tc.alias_e = t_local_life_expectancy_diff.country 
+SET diff_life_expect_1965_2015 = l_e_diff 
+
+## některé státy mají stále i kvůli rozdílným názvům NULL hodnoty - zjisti které
+SELECT country 
+FROM t_local_matej_piro_projekt_countries tlmppc 
+WHERE diff_life_expect_1965_2015 IS NULL
+
+## přidej sloupec "alias_le" který pokryje (další) rozdílně pojmenované stejné státy vzhledem k tabulce life_expectancy
+ALTER TABLE t_local_matej_piro_projekt_countries 
+ADD COLUMN alias_le text DEFAULT NULL;
+
+## do sloupce "alias_le" přidej názvy států (u těch, které si neodpovídají a zároveň mají v life_expectancy data) odpovídající tabulce life_expectancy	// další 2 státy
+UPDATE t_local_matej_piro_projekt_countries tlmppc
+SET alias_le = 'Micronesia (country)' WHERE country = 'Micronesia'
+
+UPDATE t_local_matej_piro_projekt_countries tlmppc
+SET alias_le = 'Vatican' WHERE country = 'Holy See'
+
+## přidej l_e z tabulky life_expectancy pro aliasy_le 
+UPDATE t_local_matej_piro_projekt_countries AS tc
+INNER JOIN t_local_life_expectancy_diff ON tc.alias_le = t_local_life_expectancy_diff.country 
+SET diff_life_expect_1965_2015 = l_e_diff 
+
+## ukliď po sobě pomocnou tabulku
+DROP TABLE t_local_life_expectancy_diff
+
+
+# RELIGIONS
+
+## vytvoř pomocnou tabulku se státy podle tab. religions 
+CREATE TABLE t_local_religions
+	SELECT DISTINCT country 
+	FROM religions r 
+
+## vytvoř v ní potřebné sloupce	
+ALTER TABLE t_local_religions 
+ADD COLUMN `Christianity` double DEFAULT NULL,
+ADD COLUMN `Islam` double DEFAULT NULL,
+ADD COLUMN `Unaffiliated Religions` double DEFAULT NULL,
+ADD COLUMN `Hinduism` double DEFAULT NULL,
+ADD COLUMN `Buddhism` double DEFAULT NULL,
+ADD COLUMN `Folk Religions` double DEFAULT NULL,
+ADD COLUMN `Other Religions` double DEFAULT NULL,
+ADD COLUMN `Judaism` double DEFAULT NULL
+
+## vlož do ní populační data pro rok 2020 pro jednotlivá náboženství
+UPDATE t_local_religions AS tlr 
+INNER JOIN religions ON tlr.country = religions.country 
+SET Christianity = population
+WHERE `year`= 2020 AND religion = 'Christianity'
+
+UPDATE t_local_religions AS tlr 
+INNER JOIN religions ON tlr.country = religions.country 
+SET Islam = population
+WHERE `year`= 2020 AND religion = 'Islam'
+
+UPDATE t_local_religions AS tlr 
+INNER JOIN religions ON tlr.country = religions.country 
+SET Hinduism = population
+WHERE `year`= 2020 AND religion = 'Hinduism'
+
+UPDATE t_local_religions AS tlr 
+INNER JOIN religions ON tlr.country = religions.country 
+SET Buddhism = population
+WHERE `year`= 2020 AND religion = 'Buddhism'
+
+UPDATE t_local_religions AS tlr 
+INNER JOIN religions ON tlr.country = religions.country 
+SET Judaism = population
+WHERE `year`= 2020 AND religion = 'Judaism'
+
+UPDATE t_local_religions AS tlr 
+INNER JOIN religions ON tlr.country = religions.country 
+SET `Other Religions` = population
+WHERE `year`= 2020 AND religion = 'Other Religions'
+
+UPDATE t_local_religions AS tlr 
+INNER JOIN religions ON tlr.country = religions.country 
+SET `Folk Religions` = population
+WHERE `year`= 2020 AND religion = 'Folk Religions'
+
+UPDATE t_local_religions AS tlr 
+INNER JOIN religions ON tlr.country = religions.country 
+SET `Unaffiliated Religions` = population
+WHERE `year`= 2020 AND religion = 'Unaffiliated Religions'
+
+## Vlož pomocné sloupce do tabulky t_local_matej_piro_projekt_countries 
+ALTER TABLE t_local_matej_piro_projekt_countries 
+ADD COLUMN `Christianity_pop` double DEFAULT NULL,
+ADD COLUMN `Islam_pop` double DEFAULT NULL,
+ADD COLUMN `Unaffiliated Religions_pop` double DEFAULT NULL,
+ADD COLUMN `Hinduism_pop` double DEFAULT NULL,
+ADD COLUMN `Buddhism_pop` double DEFAULT NULL,
+ADD COLUMN `Folk Religions_pop` double DEFAULT NULL,
+ADD COLUMN `Other Religions_pop` double DEFAULT NULL,
+ADD COLUMN `Judaism_pop` double DEFAULT NULL
+
+## Vlož hodnoty z tabulky t_local_religions do tabulky t_local_matej_piro_projekt_countries jak pro countrie tak pro aliasy // pro ostatní 2 aliasy vychází 0 přidaných
+UPDATE t_local_matej_piro_projekt_countries AS tc 
+INNER JOIN t_local_religions ON tc.country = t_local_religions.country  
+SET Christianity_pop = Christianity
+
+UPDATE t_local_matej_piro_projekt_countries AS tc 
+INNER JOIN t_local_religions ON tc.alias_e = t_local_religions.country  
+SET Christianity_pop = Christianity
+
+UPDATE t_local_matej_piro_projekt_countries AS tc 
+INNER JOIN t_local_religions ON tc.country = t_local_religions.country  
+SET Islam_pop = Islam
+
+UPDATE t_local_matej_piro_projekt_countries AS tc 
+INNER JOIN t_local_religions ON tc.alias_e = t_local_religions.country  
+SET Islam_pop = Islam
+
+UPDATE t_local_matej_piro_projekt_countries AS tc 
+INNER JOIN t_local_religions ON tc.country = t_local_religions.country  
+SET `Unaffiliated Religions_pop` = `Unaffiliated Religions`
+
+UPDATE t_local_matej_piro_projekt_countries AS tc 
+INNER JOIN t_local_religions ON tc.alias_e = t_local_religions.country  
+SET `Unaffiliated Religions_pop` = `Unaffiliated Religions`
+
+UPDATE t_local_matej_piro_projekt_countries AS tc 
+INNER JOIN t_local_religions ON tc.country = t_local_religions.country  
+SET Hinduism_pop = Hinduism
+
+UPDATE t_local_matej_piro_projekt_countries AS tc 
+INNER JOIN t_local_religions ON tc.alias_e = t_local_religions.country  
+SET Hinduism_pop = Hinduism
+
+UPDATE t_local_matej_piro_projekt_countries AS tc 
+INNER JOIN t_local_religions ON tc.country = t_local_religions.country  
+SET Buddhism_pop = Buddhism
+
+UPDATE t_local_matej_piro_projekt_countries AS tc 
+INNER JOIN t_local_religions ON tc.alias_e = t_local_religions.country  
+SET Buddhism_pop = Buddhism
+
+UPDATE t_local_matej_piro_projekt_countries AS tc 
+INNER JOIN t_local_religions ON tc.country = t_local_religions.country  
+SET Judaism_pop = Judaism
+
+UPDATE t_local_matej_piro_projekt_countries AS tc 
+INNER JOIN t_local_religions ON tc.alias_e = t_local_religions.country  
+SET Judaism_pop = Judaism
+
+UPDATE t_local_matej_piro_projekt_countries AS tc 
+INNER JOIN t_local_religions ON tc.country = t_local_religions.country  
+SET `Folk Religions_pop` = `Folk Religions` 
+
+UPDATE t_local_matej_piro_projekt_countries AS tc 
+INNER JOIN t_local_religions ON tc.alias_e = t_local_religions.country  
+SET `Folk Religions_pop` = `Folk Religions` 
+
+UPDATE t_local_matej_piro_projekt_countries AS tc 
+INNER JOIN t_local_religions ON tc.country = t_local_religions.country  
+SET `Other Religions_pop` = `Other Religions` 
+
+UPDATE t_local_matej_piro_projekt_countries AS tc 
+INNER JOIN t_local_religions ON tc.alias_e = t_local_religions.country  
+SET `Other Religions_pop` = `Other Religions` 
+
+## Vlož sloupce ohledně procentuálního zastoupení dané víry do tabulky t_local_matej_piro_projekt_countries 
+ALTER TABLE t_local_matej_piro_projekt_countries 
+ADD COLUMN `Christianity_pct_2020` double DEFAULT NULL,
+ADD COLUMN `Islam_pct_2020` double DEFAULT NULL,
+ADD COLUMN `Unaffiliated Religions_pct_2020` double DEFAULT NULL,
+ADD COLUMN `Hinduism_pct_2020` double DEFAULT NULL,
+ADD COLUMN `Buddhism_pct_2020` double DEFAULT NULL,
+ADD COLUMN `Folk Religions_pct_2020` double DEFAULT NULL,
+ADD COLUMN `Other Religions_pct_2020` double DEFAULT NULL,
+ADD COLUMN `Judaism_pct_2020` double DEFAULT NULL
+
+## vypočti procentuální zastoupení pro dané náboženství			!! POZOR v několika státech dosahují hodnoty nad 100%:-D !! - Data o populaci jednotlivých náboženství (křesťanství a Islám) jsou tedy vyšší než pro celkovou populaci. Někde je chyba - brát s rezervou:) !! Tipnul bych si, že chyba je spíš v datech počtu příslušníků náboženství než ve velikosti celkové populace státu. 
+UPDATE t_local_matej_piro_projekt_countries 
+SET Christianity_pct_2020 = (Christianity_pop / population_2020) *100,
+Islam_pct_2020 = (Islam_pop / population_2020) *100,
+`Unaffiliated Religions_pct_2020` = (`Unaffiliated Religions_pop`/population_2020) *100,
+Hinduism_pct_2020 = (Hinduism_pop/population_2020) *100,
+Buddhism_pct_2020 = (Buddhism_pop/population_2020) *100,
+`Folk Religions_pct_2020` = (`Folk Religions_pop`/population_2020) *100,
+`Other Religions_pct_2020` = (`Other Religions_pop`/population_2020) *100,
+Judaism_pct_2020 = (Judaism_pop/population_2020) *100
+
+## nahraď hodnoty nad 100% hodnotou 100%. (Křesť. a Islám - jinde to není)	!! POZOR Problém celkového počtu lidí pro konkrétní náb. vs celkového počtu lidí ve státu přetrvává ale nebude vidět, protože ty sloupce s počtem věřících budou smazány.
+UPDATE t_local_matej_piro_projekt_countries 
+SET Christianity_pct_2020 = 100
+WHERE Christianity_pct_2020 > 100 
+
+UPDATE t_local_matej_piro_projekt_countries 
+SET Islam_pct_2020 = 100
+WHERE Islam_pct_2020 > 100
+
+## smaž nyní již nepotřebné pomocné sloupce: absolutní počet příslušníků náboženství
+ALTER TABLE t_local_matej_piro_projekt_countries 
+DROP COLUMN Christianity_pop,
+DROP COLUMN Islam_pop,
+DROP COLUMN `Unaffiliated Religions_pop`,
+DROP COLUMN Hinduism_pop,
+DROP COLUMN Buddhism_pop,
+DROP COLUMN `Folk Religions_pop`,
+DROP COLUMN `Other Religions_pop`,
+DROP COLUMN Judaism_pop
+
+## smaž pomocnou tabulku t_local_religions
+DROP TABLE t_local_religions 
+
+
+--------------------------------------------------------
+--------------------------------------------------------
+# UŽITEČNÉ KUSY KODU
+
+---------------
+ALTER TABLE t_Matej_Piro_projekt_SQL_XXX
+DROP COLUMN tests_performed;
+
+ALTER TABLE t_Matej_Piro_projekt_SQL_XXX
+ADD tests_performed double DEFAULT NULL;
+
+ALTER TABLE t_local_matej_piro_projekt_countries 
+RENAME COLUMN gini_2018 TO gini_2015
+
+ALTER TABLE t_Matej_Piro_projekt_SQL_XXX
+ADD COLUMN weekend integer DEFAULT NULL;
+
+### # Jirka Macek altered Glum
+UPDATE t_Matej_Piro_projekt_SQL_XXX AS t 
+INNER JOIN covid19_tests as c on t.country = c.country  and t.date = c.date
+SET t.tests_performed = c.tests_performed;
+
+-----------------------------------------------------------
+-----------------------------------------------------------
+# WEEKEND sloupec - páč v SQL není boolen type, zadávám integer
 
