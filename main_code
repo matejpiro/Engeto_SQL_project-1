@@ -94,7 +94,7 @@ SET season =
 		ELSE 5
 	END) 
 
---------------------------------------
+
 # PROMĚNNÉ PRO DANÝ STÁT
 
 ## pomocná tabulka pro státy naplněná státy ze základní tabulky
@@ -500,6 +500,7 @@ ADD COLUMN `Other Religions_pct_2020` double DEFAULT NULL,
 ADD COLUMN `Judaism_pct_2020` double DEFAULT NULL
 
 ## vypočti procentuální zastoupení pro dané náboženství			!! POZOR v několika státech dosahují hodnoty nad 100%:-D !! - Data o populaci jednotlivých náboženství (křesťanství a Islám) jsou tedy vyšší než pro celkovou populaci. Někde je chyba - brát s rezervou:) !! Tipnul bych si, že chyba je spíš v datech počtu příslušníků náboženství než ve velikosti celkové populace státu. 
+									## POZOR občas dávají součty procet hodnoty přes 100%
 UPDATE t_local_matej_piro_projekt_countries 
 SET Christianity_pct_2020 = (Christianity_pop / population_2020) *100,
 Islam_pct_2020 = (Islam_pop / population_2020) *100,
@@ -534,6 +535,122 @@ DROP COLUMN Judaism_pop
 DROP TABLE t_local_religions 
 
 
+# POČASÍ
+
+## kolik unikátních měst máme v tabulce počasí? - Je jich 34.  Unikátních států v tabulce t_local_matej_piro_projekt_countries máme 189. 	POZOR spousta dat pro státy bude chybět. Také zkoumat souvislost mezi počasím a šířením viru s daty o počasí pouze pro hlavní město státu je hodně zavádějící. Jaký asi bude mít vliv počasí v Moskvě na šíření viru ve Vladivostoku... 
+SELECT count(DISTINCT city) 
+FROM weather w
+
+## přidat do tabulky t_local_matej_piro_projekt_countries sloupce pro hlavní města států
+ALTER TABLE t_local_matej_piro_projekt_countries 
+ADD COLUMN capital text DEFAULT NULL;
+
+## přidat do tabulky t_local_matej_piro_projekt_countries hlavní města států z tabulky countries
+UPDATE t_local_matej_piro_projekt_countries AS tc
+INNER JOIN countries ON tc.country = countries.country 
+SET capital = capital_city
+
+
+# UPRAV SI DATA
+
+## založ tabulku t_local_weather a zkopíruj do ní všechno z weather ať neměníš primární data
+CREATE TABLE t_local_weather
+SELECT *
+FROM weather w 
+
+## zbav se °c
+UPDATE t_local_weather tlw
+SET temp = REPLACE (temp, '°c', '')
+
+## zbav se km/h
+UPDATE t_local_weather tlw
+SET gust = REPLACE (gust , 'km/h', '')
+
+## zbav se mm
+UPDATE t_local_weather tlw
+SET rain = REPLACE (rain , 'mm', '')
+
+## změň datatype sloupce s teplotou z textu na integer /bohužel přes novej sloupec. Přímá změna nějak nefunguje. 
+ALTER TABLE t_local_weather 
+ADD COLUMN temp_2 integer
+
+UPDATE t_local_weather 
+SET temp_2 = temp 
+
+ALTER TABLE t_local_weather 
+DROP COLUMN temp
+
+ALTER TABLE t_local_weather 
+RENAME COLUMN temp_2 TO temp_°c
+
+## změň datatype sloupce s poryvy větru z textu na integer /bohužel přes novej sloupec. Přímá změna nějak nefunguje.
+ALTER TABLE t_local_weather 
+ADD COLUMN gust_2 integer
+
+UPDATE t_local_weather 
+SET gust_2 = gust 
+
+ALTER TABLE t_local_weather 
+DROP COLUMN gust
+
+ALTER TABLE t_local_weather 
+RENAME COLUMN gust_2 TO gust_km_h
+
+## změň datatype sloupce déšť z textu na integer /bohužel přes novej sloupec. Přímá změna nějak nefunguje.
+ALTER TABLE t_local_weather 
+ADD COLUMN rain_2 integer
+
+UPDATE t_local_weather 
+SET rain_2 = rain
+
+ALTER TABLE t_local_weather 
+DROP COLUMN rain
+
+ALTER TABLE t_local_weather 
+RENAME COLUMN rain_2 TO rain_mm
+
+## přidat sloupec pro max poryvy větru
+ALTER TABLE t_local_weather 
+ADD COLUMN max_gusts_km_h integer
+
+## další pomocná tabulka				NOTE: nemám už jich moc?
+CREATE TABLE t_local_weather_2
+SELECT DISTINCT `date`, city 
+FROM t_local_weather tlw
+
+ALTER TABLE t_local_weather_2
+ADD COLUMN hours_of_rain integer DEFAULT NULL,
+ADD COLUMN avg_day_temp_°c integer DEFAULT NULL,
+ADD COLUMN max_wind_gust_km_h integer DEFAULT NULL,
+ADD COLUMN country text DEFAULT NULL
+
+# POČASÍ - RYCHLOSTI VĚTRU
+
+## vytvoř tabulku t_local_weather_help_2 s maximální rychlostí větrů v poryvech pro město a datum
+CREATE TABLE t_local_weather_help_2
+SELECT `date`, city, max(gust_km_h) 
+FROM t_local_weather tlw 
+GROUP BY `date`, city
+
+## do tabulky t_local_weather_2 nahrát data z t_local_weather_help_2 o rychlosti větru
+UPDATE t_local_weather_2 AS tlw
+INNER JOIN t_local_weather_help_2 ON tlw.`date` = t_local_weather_help_2.`date` and tlw.city = t_local_weather_help_2.city
+SET max_wind_gust_km_h = `max(gust_km_h)`
+
+# POČASÍ - DÉŠŤ
+
+## vytvořit pomocnou tabulku t_local_weather_help_rain a do ní vložit dny, kdy pršelo pro jednotlivá města a data
+CREATE TABLE t_local_weather_help_rain
+SELECT `date`, city, count(rain_mm)  
+FROM t_local_weather tlw 
+WHERE rain_mm > 0
+GROUP BY `date`, city
+
+## o tabulky t_local_weather_2 nahrát data z t_local_weather_help_rain o nenulových hodinách deště pro město a datum
+UPDATE t_local_weather_2 AS tlw
+INNER JOIN t_local_weather_help_rain ON tlw.`date` = t_local_weather_help_rain.`date` and tlw.city = t_local_weather_help_rain.city
+SET hours_of_rain = `count(rain_mm)`
+
 --------------------------------------------------------
 --------------------------------------------------------
 # UŽITEČNÉ KUSY KODU
@@ -551,6 +668,11 @@ RENAME COLUMN gini_2018 TO gini_2015
 ALTER TABLE t_Matej_Piro_projekt_SQL_XXX
 ADD COLUMN weekend integer DEFAULT NULL;
 
+## zkopíruj celou tabulku
+CREATE TABLE t_local_weather
+	SELECT *
+	FROM weather w 
+
 ### # Jirka Macek altered Glum
 UPDATE t_Matej_Piro_projekt_SQL_XXX AS t 
 INNER JOIN covid19_tests as c on t.country = c.country  and t.date = c.date
@@ -559,4 +681,7 @@ SET t.tests_performed = c.tests_performed;
 -----------------------------------------------------------
 -----------------------------------------------------------
 # WEEKEND sloupec - páč v SQL není boolen type, zadávám integer
+
+
+
 
