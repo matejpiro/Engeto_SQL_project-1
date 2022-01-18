@@ -1,1 +1,28 @@
+POPIS PROCESU
+- Pracoval jsem na lokálním disku, protože jel rychleji než vzdálený server. Nakonec jsem výslednou tabulku zkopíroval na vzdálený server
+- JOIN o dvou kritériích jel na vzdáleném serveru několik hodin a ještě házel chybu, na lokálním disku asi minutu. 
+	(UPDATE t_local_matej_piro_projek AS t 					
+	INNER JOIN covid19_tests as c on t.country = c.country  and t.date = c.date
+	SET t.tests_performed = c.tests_performed;)
+- Údaje o ročních obdobích zadávány z pohledu Evropy
+- Pokud pro některou kolonku nejsou data, ponechal jsem NULL hodnotu, abych odlišil to, že nemáme data, od situace, kdy máme data, která říkájí že "hodnota je 0" (eg. počet hodin s deštěm)
+- U tabulky weather bylo potřeba upravit si data. Změnit datový typ sloupců a z hodnot typu "15 mm" vybrat pouze to číslo, aby s tím šlo dál pracovat. 
+- Pro průměrnou denní teplotu jsem zvolil zaokrouhlení na 1 desetinné místo. Nicméně při vkládání dat přes JOIN do základní tabulky se desetinné místo samo zaokrouhlilo. 
 
+PROBLÉMY OHLEDNĚ DAT
+- Rozdíl v počtech států v tabulce covid19_basic_differences (189) a covid19_tests (110) - zdroj NULL hodnot
+- V tabulce economies jsou občas státy pod jiným názvem než v tabulce covid19_basic_differences (eg. "Russia" vs "Russian Federation", "Vatican" vs "Holy See" atd.) - řešeno pomocí zvláštního dohledávání a párování přes "alias" sloupce
+- Pro některé státy z tabulky economies chybí v různých sloupcích data - zdroj NULL hodnot
+- Rozdílně stará data (vždy uvedeno u přísl. sloupce):
+-- Většinu dat máme pro rok 2020, některá ale za rok 2019, 2018 a 2x za rok 2015
+--- Např. gini koeficient byl brán pro rok 2015 (kombinace aktuálnosti dat a počtu států pro která jsou data k dispozici)
+- Spojení s tabulkou religions:
+-- Data o celkové populaci státu z tabulky countries a data o počtu příslušníků pro jednotlivé víry z tab. religions nejsou v úplné shodě. Tedy se stává, že stát má občas přes 100% (našel jsem až 124%) členů jednotlivých náboženství (shlazeno na 100%). Spíš si myslím, že bude chyba v počtech příslušníků k víře než v sumě populace státu. 
+- Spojení s tabulkou weather:
+-- Tabulka obsahuje 34 unikátních měst (tedy států) oproti 189 resp. 110 státům z tabulek předchozích. Toto je velký zdroj NULL hodnot.
+-- Také zde bylo potřeba pro další spojování se základní tabulkou použít aliasy pro hlavní města (procesem "hledej město pod jiným názvem"). Takto jsem získal data pro dalších 13 států. 
+-- Při propojení dat se základní tabulkou se INNER JOINEM propojilo asi 20 500 řádků z asi 23 800. Asi 3 000 řádků tedy nenašlo protihodnotu a propadlo do zapomnění. 
+
+VĚCNÉ POZNÁMKY
+- Zkoumat souvislost mezi počasím a šířením viru s daty o počasí pouze pro hlavní město daného státu je hodně zavádějící. Jsem zvědav na tu korelaci. Jaký asi bude mít vliv počasí v Moskvě na šíření viru ve Vladivostoku...? 
+- (jakožto studovaný meteorolog poznamenám, že:) Průměrná denní teplota se počítá z měření v 7:00, 14:00 a 21:00 přes vážený průměr, kde "21:00" má váhu 2. Z našich dat tedy správná průměrná denní teplota vypočítat nejde. Nicméně pro potřeby výuky jsem počítal s průměrem hodnot v časech 06, 09, 12, 15, 18 a 21.
