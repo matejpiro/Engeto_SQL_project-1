@@ -1,6 +1,6 @@
-# Vytvořím tabulku t_Matej_Piro_projekt_SQL_babystep1. 
+# Vytvořím tabulku t_local_matej_piro_projekt 
 
-CREATE TABLE t_Matej_Piro_projekt_SQL_babystep1 (
+CREATE TABLE t_local_matej_piro_projekt (
   `date` date DEFAULT NULL,
   `country` text DEFAULT NULL,
   `confirmed` double DEFAULT NULL,
@@ -8,21 +8,20 @@ CREATE TABLE t_Matej_Piro_projekt_SQL_babystep1 (
   KEY `covid19_basic_differences_country_key` (`country`(1000))
 );
 
-# Jako základ struktury použiju tabulku covid19_basic_differences. 
-Z ní překopíruju sloupce 'date' , 'country' a 'confirmed'.
+## Jako základ struktury použiju tabulku covid19_basic_differences. Z ní překopíruju sloupce 'date' , 'country' a 'confirmed'.
 
-INSERT INTO t_Matej_Piro_projekt_SQL_babystep1
+INSERT INTO t_local_matej_piro_projekt
 	SELECT `date` , country , confirmed  
 	FROM covid19_basic_differences cbd;
 
 ## Zjistím si, kolik mám v tabulce unikátních států. Vyjde mi 189.
 
 SELECT count(DISTINCT country) 
-FROM t_Matej_Piro_projekt_SQL_babystep1 tmppsb
+FROM t_local_matej_piro_projekt 
 
-# Přidám do tabulky t_Matej_Piro_projekt_SQL_babystep1 sloupec tests_performed
+# Přidám do tabulky t_local_matej_piro_projekt sloupec tests_performed
 
-ALTER TABLE t_Matej_Piro_projekt_SQL_babystep1 
+ALTER TABLE t_local_matej_piro_projekt
 ADD tests_performed double DEFAULT NULL;
 
 ## Zjistím si, kolik mám v tabulce covid19_tests unikátních států. Vyjde mi 110.
@@ -31,14 +30,14 @@ SELECT count(DISTINCT country)
 FROM covid19_tests ct
 
 # TESTS PERFORMED
-## Do tabulky t_Matej_Piro_projekt_SQL_babystep1 přidám data o počtu provedených testů z tabulky covid19_tests.
-S vědomím, že existuje značný rozdíl v počtu unikátních států v obou tabulkách (189 a 110). A tedy, že pro hodně států bude hodnota "NULL". Je možné s tím nesouhlasit a to je asi tak všechno co s tím můžu dělat.
+## Do tabulky t_local_matej_piro_projekt přidám data o počtu provedených testů z tabulky covid19_tests.
+## S vědomím, že existuje značný rozdíl v počtu unikátních států v obou tabulkách (189 a 110). A tedy, že pro hodně států bude hodnota "NULL". 
 
-UPDATE t_Matej_Piro_projekt_SQL_XXX AS t 			#  tohle je v principu správně. Jen je to tak výpočetně náročný, že prakticky je vhodné to rozdělit do víc kroků.
+UPDATE t_local_matej_piro_projek AS t 					#  Pro vzdálenou databázi výpočetně náročné. Pro local PC přijatelná rychlost.
 INNER JOIN covid19_tests as c on t.country = c.country  and t.date = c.date
 SET t.tests_performed = c.tests_performed;
 
---------------------
+# -------------------------------------------------------------------------------------------------------------------
 # WEEKEND?
 
 ## přidej sloupec weekend
@@ -50,7 +49,7 @@ ALTER TABLE t_local_matej_piro_projekt
 ADD COLUMN week_day integer DEFAULT NULL;
 
 ## zjisti den v týdnu a ulož ho do sloupce week_day (funkce DATE_FORMAT)
-UPDATE t_local_matej_piro_projekt AS t 		# Sunday=0 and Saturday=6
+UPDATE t_local_matej_piro_projekt AS t 			# Sunday=0 and Saturday=6
 SET week_day = DATE_FORMAT(`date` , "%w")
 
 ## nastav 1 pro víkend a 0 pro všední den ve sloupci weekend
@@ -66,12 +65,12 @@ SET weekend =
 ALTER TABLE t_local_matej_piro_projekt 
 DROP COLUMN week_day
 
---------------------------------------
+# -------------------------------------------------------------------------------------------------------------------
 # ROČNÍ OBDOBÍ DANÉHO DNE - POZN: Bude počítáno s ročními obdobími dle Evropy. Je dobré vědět, že roční období se liší podle toho, kde stát na planetě leží (severní/jižní polokoule):P. Třeba 1.4. pro ČR znamená cca opačné roční období než pro Austrálii.
 
 ## kdy končí a začínají roční období 
-jaro 2020: od 20.3.	léto 2020: od 20.6.	podzim 2020: od 22.9.	zima 2020: od 21.12.	jaro 2021: od 20.3.	
-jaro: 0, léto: 1, podzim: 2, zima: 3
+## jaro 2020: od 20.3.		léto 2020: od 20.6.	podzim 2020: od 22.9.	zima 2020: od 21.12.	jaro 2021: od 20.3.	
+## jaro: 0, léto: 1, podzim: 2, zima: 3
 
 ## zjistím od kdy do kdy mám data: 
 SELECT min(`date`), max(`date`) 
@@ -81,8 +80,8 @@ FROM t_local_matej_piro_projekt tlmpp
 ALTER TABLE t_local_matej_piro_projekt  
 ADD COLUMN season integer DEFAULT NULL;
 
-## nastav období
-UPDATE t_local_matej_piro_projekt 	# BETWEEN bere hodnoty včetně krajních
+## nastav období (BETWEEN bere hodnoty včetně krajních)
+UPDATE t_local_matej_piro_projekt 	
 SET season = 
 	(CASE 
 		WHEN `date` < '2020-3-20' THEN 3				# zima 2021/2020 je do 20.3. bez něj
@@ -94,8 +93,8 @@ SET season =
 		ELSE 5
 	END) 
 
-
-# PROMĚNNÉ PRO DANÝ STÁT
+# -------------------------------------------------------------------------------------------------------------------
+# EKONOMICKÉ A DEMOGRAFICKÉ PROMĚNNÉ PRO DANÝ STÁT
 
 ## pomocná tabulka pro státy naplněná státy ze základní tabulky
 CREATE TABLE t_local_Matej_Piro_projekt_countries
@@ -121,7 +120,7 @@ INNER JOIN economies ON tc.country = economies.country
 SET population_2020 = population
 WHERE `year` = 2020
 
-## některé státy mají kvůli rozdílným názvům NULL hodnoty - zjisti které
+## některé státy mají kvůli rozdílným názvům států NULL hodnoty - zjisti které
 SELECT country 
 FROM t_local_matej_piro_projekt_countries tlmppc 
 WHERE population_2020 IS NULL 
@@ -145,7 +144,7 @@ WHERE `year` = 2020 AND country LIKE '%Baham%' OR
 	`year` = 2020 AND country LIKE '%Russia%' OR 
 	`year` = 2020 AND country LIKE '%Saint Kitt%' OR 	# není
 	`year` = 2020 AND country LIKE '%Saint Luc%' OR 	# není
-	`year` = 2020 AND country LIKE '%Saint Vinc%' OR	 # není
+	`year` = 2020 AND country LIKE '%Saint Vinc%' OR	# není
 	`year` = 2020 AND country LIKE '%Taiw%' OR 		# není
 	`year` = 2020 AND country LIKE '%United Sta%' OR 
 	`year` = 2020 AND country LIKE '%Gaza%' 		# není
@@ -247,7 +246,7 @@ SELECT country
 FROM t_local_matej_piro_projekt_countries tlmppc 
 WHERE area IS NULL
 
-## přidej sloupec "alias_c" který pokryje (další) rozdělíně pojmenované stejné státy vzhledem k tabulce countries
+## přidej sloupec "alias_c" který pokryje (další) rozdílně pojmenované stejné státy vzhledem k tabulce countries
 ALTER TABLE t_local_matej_piro_projekt_countries 
 ADD COLUMN alias_c text DEFAULT NULL;
 	
@@ -349,10 +348,10 @@ UPDATE t_local_matej_piro_projekt_countries AS tc
 INNER JOIN t_local_life_expectancy_diff ON tc.alias_le = t_local_life_expectancy_diff.country 
 SET diff_life_expect_1965_2015 = l_e_diff 
 
-## ukliď po sobě pomocnou tabulku
+## ukliď pomocnou tabulku
 DROP TABLE t_local_life_expectancy_diff
 
-
+# -------------------------------------------------------------------------------------------------------------------
 # RELIGIONS
 
 ## vytvoř pomocnou tabulku se státy podle tab. religions 
@@ -423,7 +422,7 @@ ADD COLUMN `Folk Religions_pop` double DEFAULT NULL,
 ADD COLUMN `Other Religions_pop` double DEFAULT NULL,
 ADD COLUMN `Judaism_pop` double DEFAULT NULL
 
-## Vlož hodnoty z tabulky t_local_religions do tabulky t_local_matej_piro_projekt_countries jak pro countrie tak pro aliasy // pro ostatní 2 aliasy vychází 0 přidaných
+## Vlož hodnoty z tabulky t_local_religions do tabulky t_local_matej_piro_projekt_countries jak pro countries tak pro aliasy // pro ostatní 2 aliasy vychází 0 přidaných
 UPDATE t_local_matej_piro_projekt_countries AS tc 
 INNER JOIN t_local_religions ON tc.country = t_local_religions.country  
 SET Christianity_pop = Christianity
@@ -534,7 +533,7 @@ DROP COLUMN Judaism_pop
 ## smaž pomocnou tabulku t_local_religions
 DROP TABLE t_local_religions 
 
-
+# -------------------------------------------------------------------------------------------------------------------
 # POČASÍ
 
 ## kolik unikátních měst máme v tabulce počasí? - Je jich 34.  Unikátních států v tabulce t_local_matej_piro_projekt_countries máme 189. 	POZOR spousta dat pro státy bude chybět. Také zkoumat souvislost mezi počasím a šířením viru s daty o počasí pouze pro hlavní město státu je hodně zavádějící. Jaký asi bude mít vliv počasí v Moskvě na šíření viru ve Vladivostoku... 
@@ -613,7 +612,7 @@ RENAME COLUMN rain_2 TO rain_mm
 ALTER TABLE t_local_weather 
 ADD COLUMN max_gusts_km_h integer
 
-## další pomocná tabulka				NOTE: nemám už jich moc?
+## další pomocná tabulka				
 CREATE TABLE t_local_weather_2
 SELECT DISTINCT `date`, city 
 FROM t_local_weather tlw
@@ -626,15 +625,15 @@ ADD COLUMN country text DEFAULT NULL
 
 # POČASÍ - RYCHLOSTI VĚTRU
 
-## vytvoř tabulku t_local_weather_help_2 s maximální rychlostí větrů v poryvech pro město a datum
-CREATE TABLE t_local_weather_help_2
+## vytvoř tabulku t_local_weather_help_wind s maximální rychlostí větrů v poryvech pro město a datum
+CREATE TABLE t_local_weather_help_wind
 SELECT `date`, city, max(gust_km_h) 
 FROM t_local_weather tlw 
 GROUP BY `date`, city
 
-## do tabulky t_local_weather_2 nahrát data z t_local_weather_help_2 o rychlosti větru
+## do tabulky t_local_weather_2 nahrát data z t_local_weather_help_wind o rychlosti větru
 UPDATE t_local_weather_2 AS tlw
-INNER JOIN t_local_weather_help_2 ON tlw.`date` = t_local_weather_help_2.`date` and tlw.city = t_local_weather_help_2.city
+INNER JOIN t_local_weather_help_wind ON tlw.`date` = t_local_weather_help_wind.`date` and tlw.city = t_local_weather_help_wind.city
 SET max_wind_gust_km_h = `max(gust_km_h)`
 
 # POČASÍ - DÉŠŤ
@@ -646,42 +645,262 @@ FROM t_local_weather tlw
 WHERE rain_mm > 0
 GROUP BY `date`, city
 
-## o tabulky t_local_weather_2 nahrát data z t_local_weather_help_rain o nenulových hodinách deště pro město a datum
+## do tabulky t_local_weather_2 nahrát data z t_local_weather_help_rain o nenulových hodinách deště pro město a datum
 UPDATE t_local_weather_2 AS tlw
 INNER JOIN t_local_weather_help_rain ON tlw.`date` = t_local_weather_help_rain.`date` and tlw.city = t_local_weather_help_rain.city
 SET hours_of_rain = `count(rain_mm)`
 
---------------------------------------------------------
---------------------------------------------------------
-# UŽITEČNÉ KUSY KODU
+## přidej nuly tam kde mají být
+UPDATE t_local_weather_2
+SET hours_of_rain = 0 
+WHERE hours_of_rain IS NULL
 
----------------
-ALTER TABLE t_Matej_Piro_projekt_SQL_XXX
-DROP COLUMN tests_performed;
+# POČASÍ - TEPLOTA
 
-ALTER TABLE t_Matej_Piro_projekt_SQL_XXX
-ADD tests_performed double DEFAULT NULL;
+## vytvořit pomocnou tabulku t_local_weather_help_temp a do ní vložit údaje o průměrné denní teplotě za jednotlivé dny pro jednotlivá města. NOTE: teplota počítána jako průměr hodnot v časech 06, 09, 12, 15, 18 a 21. Zaokrouhleno na 1 desetinéé místo. 
+CREATE TABLE t_local_weather_help_temp
+SELECT `date`, city, round(avg(`temp_°c`),1) AS avg_day_temp_°c_help
+FROM t_local_weather tlw 
+WHERE `time` = '06:00' OR `time` = '09:00' OR `time` = '12:00' OR `time` = '15:00' OR `time` = '18:00' OR `time` = '21:00'
+GROUP BY `date`, city
 
-ALTER TABLE t_local_matej_piro_projekt_countries 
-RENAME COLUMN gini_2018 TO gini_2015
+## do tabulky t_local_weather_2 nahrát data z t_local_weather_help_temp o průměrné denní teplotě. NOTE: Data se operací zaokrouhlila na 0 des. míst... zajímavé. 
+UPDATE t_local_weather_2 AS tlw
+INNER JOIN t_local_weather_help_temp ON tlw.`date` = t_local_weather_help_temp.`date` and tlw.city = t_local_weather_help_temp.city
+SET `avg_day_temp_°c` = `avg_day_temp_°c_help`
 
-ALTER TABLE t_Matej_Piro_projekt_SQL_XXX
-ADD COLUMN weekend integer DEFAULT NULL;
+## uklidit nepotřebné tabulky
+DROP TABLE t_local_weather
 
-## zkopíruj celou tabulku
-CREATE TABLE t_local_weather
-	SELECT *
-	FROM weather w 
+DROP TABLE t_local_weather_help_temp
 
-### # Jirka Macek altered Glum
-UPDATE t_Matej_Piro_projekt_SQL_XXX AS t 
-INNER JOIN covid19_tests as c on t.country = c.country  and t.date = c.date
+DROP TABLE t_local_weather_help_rain
+
+DROP TABLE t_local_weather_help_wind
+
+## přidat sloupec státy do tabulky t_local_weather_2 a vložit do něj hodnoty z tab t_local_matej_piro_projekt_countries
+ALTER TABLE t_local_weather_2
+RENAME COLUMN country TO state
+
+UPDATE t_local_weather_2 AS tlw
+INNER JOIN t_local_matej_piro_projekt_countries ON tlw.city = t_local_matej_piro_projekt_countries.capital 
+SET state = country 
+
+## která města nemají přiřazené státy?
+SELECT DISTINCT city, state 
+FROM t_local_weather_2 tlw 
+WHERE state IS NULL 
+
+## přiřaď státy těmto městům
+UPDATE t_local_weather_2 AS tlw
+SET state = 'Greece'
+WHERE city = 'Athens'
+
+UPDATE t_local_weather_2 AS tlw
+SET state = 'Belgium'
+WHERE city = 'Brussels'
+
+UPDATE t_local_weather_2 AS tlw
+SET state = 'Romania'
+WHERE city = 'Bucharest'
+
+UPDATE t_local_weather_2 AS tlw
+SET state = 'Finland'
+WHERE city = 'Helsinki'
+
+UPDATE t_local_weather_2 AS tlw
+SET state = 'Ukraine'
+WHERE city = 'Kiev'
+
+UPDATE t_local_weather_2 AS tlw
+SET state = 'Portugal'
+WHERE city = 'Lisbon'
+
+UPDATE t_local_weather_2 AS tlw
+SET state = 'Luxembourg'
+WHERE city = 'Luxembourg'
+
+UPDATE t_local_weather_2 AS tlw
+SET state = 'Russia'
+WHERE city = 'Moscow'
+
+UPDATE t_local_weather_2 AS tlw
+SET state = 'Czechia'
+WHERE city = 'Prague'
+
+UPDATE t_local_weather_2 AS tlw
+SET state = 'Italy'
+WHERE city = 'Rome'
+
+UPDATE t_local_weather_2 AS tlw
+SET state = 'Austria'
+WHERE city = 'Vienna'
+
+UPDATE t_local_weather_2 AS tlw
+SET state = 'Poland'
+WHERE city = 'Warsaw'
+
+## smaž prázdné řádky (pokud je prázdné "město") z tabulky t_local_weather_2 
+DELETE FROM t_local_weather_2 
+WHERE city IS NULL
+
+# -------------------------------------------------------------------------------------------------------------------
+# SPOJOVÁNÍ TABULEK
+
+## přidej do tabulky t_local_matej_piro_projekt údaj o provedených testech z tabulky covid19_tests, propoj dle data a státu. Propojí se asi 20 500 řádků z asi 23 800
+UPDATE t_local_matej_piro_projekt AS t 
+INNER JOIN covid19_tests AS c ON t.country = c.country AND t.`date` = c.`date`
 SET t.tests_performed = c.tests_performed;
 
------------------------------------------------------------
------------------------------------------------------------
-# WEEKEND sloupec - páč v SQL není boolen type, zadávám integer
+## sloupce do tabulky t_local_matej_piro_projekt 
+ALTER TABLE t_local_matej_piro_projekt 
+ADD COLUMN population_2020_b double DEFAULT NULL,
+ADD COLUMN pop_density_2020_b double DEFAULT NULL,
+ADD COLUMN gini_2015_b double DEFAULT NULL,
+ADD COLUMN mortality_under_5_2019_b double DEFAULT NULL,
+ADD COLUMN age_median_2018_b double DEFAULT NULL,
+ADD COLUMN diff_life_expect_1965_2015_b double DEFAULT NULL,
+ADD COLUMN GDP_per_cap_2020_b double DEFAULT NULL,
+ADD COLUMN Christianity_pct_2020_b double DEFAULT NULL,
+ADD COLUMN Islam_pct_2020_b double DEFAULT NULL,
+ADD COLUMN `Unaffiliated Religions_pct_2020_b` double DEFAULT NULL,
+ADD COLUMN Hinduism_pct_2020_b double DEFAULT NULL,
+ADD COLUMN Buddhism_pct_2020_b double DEFAULT NULL,
+ADD COLUMN `Folk Religions_pct_2020_b` double DEFAULT NULL,
+ADD COLUMN `Other Religions_pct_2020_b` double DEFAULT NULL,
+ADD COLUMN Judaism_pct_2020_b double DEFAULT NULL
 
+# NALIJ DATA Z "COUNTRIES" DO HLAVNÍ TABULKY
+UPDATE t_local_matej_piro_projekt AS tp 
+INNER JOIN t_local_matej_piro_projekt_countries AS c ON tp.country = c.country 
+SET tp.population_2020_b = c.population_2020;
 
+UPDATE t_local_matej_piro_projekt AS tp 
+INNER JOIN t_local_matej_piro_projekt_countries AS c ON tp.country = c.country 
+SET tp.pop_density_2020_b = c.pop_density_2020;
 
+UPDATE t_local_matej_piro_projekt AS tp 
+INNER JOIN t_local_matej_piro_projekt_countries AS c ON tp.country = c.country 
+SET tp.pop_density_2020_b = c.pop_density_2020;
 
+UPDATE t_local_matej_piro_projekt AS tp 
+INNER JOIN t_local_matej_piro_projekt_countries AS c ON tp.country = c.country 
+SET tp.mortality_under_5_2019_b = c.mortality_under_5_2019;
+
+UPDATE t_local_matej_piro_projekt AS tp 
+INNER JOIN t_local_matej_piro_projekt_countries AS c ON tp.country = c.country 
+SET tp.age_median_2018_b = c.age_median_2018;
+
+UPDATE t_local_matej_piro_projekt AS tp 
+INNER JOIN t_local_matej_piro_projekt_countries AS c ON tp.country = c.country 
+SET tp.diff_life_expect_1965_2015_b = c.diff_life_expect_1965_2015;
+
+UPDATE t_local_matej_piro_projekt AS tp 
+INNER JOIN t_local_matej_piro_projekt_countries AS c ON tp.country = c.country 
+SET tp.GDP_per_cap_2020_b = c.GDP_per_cap_2020;
+
+UPDATE t_local_matej_piro_projekt AS tp 
+INNER JOIN t_local_matej_piro_projekt_countries AS c ON tp.country = c.country 
+SET tp.Christianity_pct_2020_b = c.Christianity_pct_2020;
+
+UPDATE t_local_matej_piro_projekt AS tp 
+INNER JOIN t_local_matej_piro_projekt_countries AS c ON tp.country = c.country 
+SET tp.Islam_pct_2020_b = c.Islam_pct_2020;
+
+UPDATE t_local_matej_piro_projekt AS tp 
+INNER JOIN t_local_matej_piro_projekt_countries AS c ON tp.country = c.country 
+SET tp.`Unaffiliated Religions_pct_2020_b` = c.`Unaffiliated Religions_pct_2020`;
+
+UPDATE t_local_matej_piro_projekt AS tp 
+INNER JOIN t_local_matej_piro_projekt_countries AS c ON tp.country = c.country 
+SET tp.Hinduism_pct_2020_b = c.Hinduism_pct_2020;
+
+UPDATE t_local_matej_piro_projekt AS tp 
+INNER JOIN t_local_matej_piro_projekt_countries AS c ON tp.country = c.country 
+SET tp.Buddhism_pct_2020_b = c.Buddhism_pct_2020;
+
+UPDATE t_local_matej_piro_projekt AS tp 
+INNER JOIN t_local_matej_piro_projekt_countries AS c ON tp.country = c.country 
+SET tp.`Folk Religions_pct_2020_b` = c.`Folk Religions_pct_2020`;
+
+UPDATE t_local_matej_piro_projekt AS tp 
+INNER JOIN t_local_matej_piro_projekt_countries AS c ON tp.country = c.country 
+SET tp.`Other Religions_pct_2020_b` = c.`Other Religions_pct_2020`;
+
+# -------------------------------------------------------------------------------------------------------------------
+# PŘIPOJENÍ DAT O POČASÍ
+
+## přidej sloupce do hlavní tabulky
+ALTER TABLE t_local_matej_piro_projekt 
+ADD COLUMN hours_of_rain_b int(11) DEFAULT NULL,
+ADD COLUMN avg_day_temp_°c_b int(11) DEFAULT NULL,
+ADD COLUMN max_wind_gust_km_h_b int(11) DEFAULT NULL
+
+## nalej data o počasí do hlavní tabulky
+UPDATE t_local_matej_piro_projekt AS tp 
+INNER JOIN t_local_weather_2 AS w ON tp.country = w.state AND tp.`date` = w.`date` 
+SET tp.hours_of_rain_b = w.hours_of_rain;
+
+UPDATE t_local_matej_piro_projekt AS tp 
+INNER JOIN t_local_weather_2 AS w ON tp.country = w.state AND tp.`date` = w.`date` 
+SET tp.`avg_day_temp_°c_b` = w.`avg_day_temp_°c`;
+
+UPDATE t_local_matej_piro_projekt AS tp 
+INNER JOIN t_local_weather_2 AS w ON tp.country = w.state AND tp.`date` = w.`date` 
+SET tp.max_wind_gust_km_h_b = w.max_wind_gust_km_h;
+
+# -------------------------------------------------------------------------------------------------------------------
+## Hezčí pojmenování sloupců - přejmenovat stávající
+ALTER TABLE t_local_matej_piro_projekt 
+RENAME COLUMN population_2020_b TO population_2020
+
+ALTER TABLE t_local_matej_piro_projekt 
+RENAME COLUMN pop_density_2020_b TO pop_density_2020
+
+ALTER TABLE t_local_matej_piro_projekt 
+RENAME COLUMN gini_2015_b TO gini_2015
+
+ALTER TABLE t_local_matej_piro_projekt 
+RENAME COLUMN mortality_under_5_2019_b TO mortality_under_5_2019
+
+ALTER TABLE t_local_matej_piro_projekt 
+RENAME COLUMN age_median_2018_b TO age_median_2018
+
+ALTER TABLE t_local_matej_piro_projekt 
+RENAME COLUMN diff_life_expect_1965_2015_b TO diff_life_expect_1965_2015
+
+ALTER TABLE t_local_matej_piro_projekt 
+RENAME COLUMN GDP_per_cap_2020_b TO GDP_per_cap_2020
+
+ALTER TABLE t_local_matej_piro_projekt 
+RENAME COLUMN Christianity_pct_2020_b TO Christianity_pct_2020
+
+ALTER TABLE t_local_matej_piro_projekt 
+RENAME COLUMN Islam_pct_2020_b TO Islam_pct_2020
+
+ALTER TABLE t_local_matej_piro_projekt 
+RENAME COLUMN `Unaffiliated Religions_pct_2020_b` TO `Unaffiliated Religions_pct_2020`
+
+ALTER TABLE t_local_matej_piro_projekt 
+RENAME COLUMN Hinduism_pct_2020_b TO Hinduism_pct_2020
+
+ALTER TABLE t_local_matej_piro_projekt 
+RENAME COLUMN Buddhism_pct_2020_b TO Buddhism_pct_2020
+
+ALTER TABLE t_local_matej_piro_projekt 
+RENAME COLUMN `Folk Religions_pct_2020_b` TO `Folk Religions_pct_2020`
+
+ALTER TABLE t_local_matej_piro_projekt 
+RENAME COLUMN `Other Religions_pct_2020_b` TO `Other Religions_pct_2020`
+
+ALTER TABLE t_local_matej_piro_projekt 
+RENAME COLUMN Judaism_pct_2020_b TO Judaism_pct_2020
+
+ALTER TABLE t_local_matej_piro_projekt 
+RENAME COLUMN avg_day_temp_°c_b TO avg_day_temp_°c
+
+ALTER TABLE t_local_matej_piro_projekt 
+RENAME COLUMN max_wind_gust_km_h_b TO max_wind_gust_km_h
+
+ALTER TABLE t_local_matej_piro_projekt 
+RENAME COLUMN hours_of_rain_b TO hours_of_rain
