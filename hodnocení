@@ -1,0 +1,12 @@
+Ahoj, mám tady zpwtnou vazbu ke tvému projektu:
+
+    Celou dobu jsi komunikoval se mnou i na fóru, což vnímám jako obrovské plus :slightly_smiling_face:
+    https://github.com/matejpiro/Engeto_SQL_project-1/blob/main/Popis popis by mohl být rovnou v README, které je zbytečně prázdné. Navíc, kdyby měl soubor "popis" nějakou příponu formátu (třeba .md jako MarkDwon), tak by jej GitHub uměl pěkně naformátovat. Obsahově je ale soubor dobrý a pomohá v orientaci v projektu.
+    SQL jsou dobře formátována a díky tomu se dobře čtou.
+    Rezervovaná slova máš sjednocena na kapitálky, což opět zlepšuje čitelsnost.
+    Některé SQL ti nekončí středníky a některé ano. Možná sjednotit? Obecně bych doporučil středníky psát za každý SQL dotaz.
+    https://github.com/matejpiro/Engeto_SQL_project-1/blob/main/main_code#L524 oceňuji průběžé čištění databáze.
+    https://github.com/matejpiro/Engeto_SQL_project-1/blob/main/main_code#L562 čištění dat je také v pořádku.
+    Celý script je trošku delší, jelikož jsi často dělal jenom jednu operaci nad celou datovou sadou a dalo by se to shluknout do jednoho dotazu, nicméně ničemu to nevadí v tomto projektu :slightly_smiling_face:
+    Finální tabulka obsahuje data v požadované struktuře.
+    Díky za tvoji práci, myslím, že to je povedený projekt. Uznávám ho a přeji hodně štěstí u Python projektu 
